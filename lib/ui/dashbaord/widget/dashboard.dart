@@ -1,13 +1,13 @@
 import 'dart:convert';
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_practical_test/base/apis/api_url.dart';
 import 'package:flutter_practical_test/base/constant.dart';
 import 'package:flutter_practical_test/base/routes/routes.dart';
 import 'package:flutter_practical_test/base/theme/images_link.dart';
 import 'package:flutter_practical_test/ui/dashbaord/model/headline_model.dart';
-import 'package:flutter_practical_test/ui/newsdescription/widget/description_page.dart';
+import 'package:flutter_practical_test/ui/dashbaord/model/news_model.dart';
+import 'package:flutter_practical_test/ui/news_description/widget/description_page.dart';
+import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 
 class Dashboard extends StatefulWidget {
@@ -18,13 +18,31 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
+  late Box box;
+
+  List<Sources> newsHeadLinesList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    initilizeDB();
+    fetchNewsData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+          elevation: 0.0,
+          child: const Icon(Icons.bookmark),
+          onPressed: () {
+            Navigator.of(context).pushNamed(Routes.BOOKMARK);
+          }),
       appBar: AppBar(
         title: const Text(
           Constant.kNewsApp,
         ),
+        automaticallyImplyLeading: false,
         actions: <Widget>[
           SizedBox(
             height: 35,
@@ -62,7 +80,8 @@ class _DashboardState extends State<Dashboard> {
                   Navigator.of(context).pushNamed(Routes.SIGN_IN);
                 }
               },
-              itemBuilder: (context) => [
+              itemBuilder: (context) =>
+              [
                 PopupMenuItem(
                   enabled: false,
                   child: ListTile(
@@ -108,50 +127,48 @@ class _DashboardState extends State<Dashboard> {
       body: SafeArea(
         maintainBottomViewPadding: true,
         bottom: true,
-        child: FutureBuilder(
-          future: _headLineApi(),
-          builder:
-              (BuildContext context, AsyncSnapshot<List<Sources>> snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            } else {
-              return ListView.separated(
-                separatorBuilder: (_, __) => const Divider(height: 5),
-                itemCount: snapshot.data!.length,
-                shrinkWrap: true,
-                itemBuilder: (BuildContext context, int index) {
-                  return newsHeadLinesView(snapshot.data![index], index);
-                },
-              );
-            }
+        child: newsHeadLinesList.isNotEmpty
+            ? ListView.separated(
+          separatorBuilder: (_, __) => const Divider(height: 5),
+          itemCount: newsHeadLinesList.length,
+          shrinkWrap: true,
+          itemBuilder: (BuildContext context, int index) {
+            return newsHeadLinesView(newsHeadLinesList[index], index);
           },
+        )
+            : const Center(
+          child: CircularProgressIndicator(),
         ),
       ),
     );
   }
 
+  // Initialize DB
+  void initilizeDB() async {
+    box = await Hive.openBox<Task>('newsDB');
+  }
+
   // Call HeadLine Api
-  Future<List<Sources>> _headLineApi() async {
-    var url = Uri.parse('${ApiUrls.kBaseUrl}${ApiUrls.kNewsSource}${ApiUrls.kApiKey}');
+  void fetchNewsData() async {
+    var url = Uri.parse(
+        '${ApiUrls.kBaseUrl}${ApiUrls.kNewsSource}${ApiUrls.kApiKey}');
     var response = await http.get(url);
     var responseData = json.decode(response.body);
-    List<Sources> newsHeadLinesList = [];
     if (response.statusCode == 200) {
-      for (var singleHeadLines in responseData['sources']) {
-        Sources headLines = Sources(
-            id: singleHeadLines["id"],
-            name: singleHeadLines["name"],
-            description: singleHeadLines["description"],
-            url: singleHeadLines["url"],
-            category: singleHeadLines["category"],
-            language: singleHeadLines["language"],
-            country: singleHeadLines["country"]);
-        newsHeadLinesList.add(headLines);
-      }
+      setState(() {
+        for (var singleHeadLines in responseData['sources']) {
+          Sources headLines = Sources(
+              id: singleHeadLines["id"],
+              name: singleHeadLines["name"],
+              description: singleHeadLines["description"],
+              url: singleHeadLines["url"],
+              category: singleHeadLines["category"],
+              language: singleHeadLines["language"],
+              country: singleHeadLines["country"]);
+          newsHeadLinesList.add(headLines);
+        }
+      });
     }
-    return newsHeadLinesList;
   }
 
   // Widget News HeadLine
@@ -166,7 +183,7 @@ class _DashboardState extends State<Dashboard> {
               flex: 1,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: ()=> goToDescriptionPage(mData.id!),
+                onTap: () => goToDescriptionPage(mData.id!),
                 child: Column(
                   children: [
                     Text(mData.name!),
@@ -182,9 +199,9 @@ class _DashboardState extends State<Dashboard> {
                 ),
               )),
           GestureDetector(
-            onTap: () => bookmarkedFeed(mData),
+            onTap: () => bookmarkedFeed(mData, index),
             child: Image.asset(
-              index == 0
+              mData.isBookmarked != null && mData.isBookmarked! == true
                   ? ImagesLink.CHECK_BOOKMARK
                   : ImagesLink.UNCHECK_BOOKMARK,
               fit: BoxFit.cover,
@@ -198,8 +215,25 @@ class _DashboardState extends State<Dashboard> {
   }
 
   // Book marked feed with bookmark option
-  bookmarkedFeed(Sources mData) {
-    print(mData.name);
+  bookmarkedFeed(Sources mData, int index) async {
+    var box1 = await Hive.openBox<Task>('newsDB');
+    setState(() {
+      if (mData.isBookmarked != null && mData.isBookmarked == true) {
+        mData.isBookmarked = false;
+        box1.deleteAt(index);
+      } else {
+        mData.isBookmarked = true;
+        // Add bookmarked data into local storage
+        Task addNews = Task(
+            id: mData.id,
+            name: mData.name,
+            description: mData.description,
+            url: mData.url,
+            category: mData.category,
+            isBookmarked: mData.isBookmarked);
+        box1.add(addNews);
+      }
+    });
   }
 
   // Move to Description Page

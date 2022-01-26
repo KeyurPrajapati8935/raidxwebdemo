@@ -32,6 +32,7 @@ class Sources {
   String? category;
   String? language;
   String? country;
+  bool? isBookmarked;
 
   Sources(
       {this.id,
@@ -40,7 +41,8 @@ class Sources {
       this.url,
       this.category,
       this.language,
-      this.country});
+      this.country,
+      this.isBookmarked});
 
   Sources.fromJson(Map<String, dynamic> json) {
     id = json['id'];

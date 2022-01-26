@@ -4,11 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_practical_test/base/apis/api_url.dart';
 import 'package:flutter_practical_test/base/constant.dart';
 import 'package:flutter_html/flutter_html.dart';
-import 'package:flutter_practical_test/ui/newsdescription/model/news_list_model.dart';
+import 'package:flutter_practical_test/ui/news_description/model/news_list_model.dart';
 import 'package:http/http.dart' as http;
 
 class DescriptionPage extends StatefulWidget {
-
   final String? id;
 
   const DescriptionPage({Key? key, this.id}) : super(key: key);
@@ -56,7 +55,12 @@ class _DescriptionPageState extends State<DescriptionPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 12.0),
                         child: ExpansionTileCard(
                           leading: CircleAvatar(
-                            backgroundImage: NetworkImage(newsList[index].urlToImage.toString().isNotEmpty ? newsList[index].urlToImage : 'https://qa-pms.qualitycop.in/Images/userImages/UnAssignedImg.png'),
+                            backgroundImage: NetworkImage(newsList[index]
+                                    .urlToImage
+                                    .toString()
+                                    .isNotEmpty
+                                ? newsList[index].urlToImage
+                                : 'https://qa-pms.qualitycop.in/Images/userImages/UnAssignedImg.png'),
                           ),
                           title: Column(
                             children: [
@@ -116,7 +120,8 @@ class _DescriptionPageState extends State<DescriptionPage> {
       _isFirstLoadRunning = true;
     });
     try {
-      var url = Uri.parse('${ApiUrls.kBaseUrl}${ApiUrls.kNewsListUrl}${widget.id}&pageSize=$pageSize&page=$page&${ApiUrls.kApiKey}');
+      var url = Uri.parse(
+          '${ApiUrls.kBaseUrl}${ApiUrls.kNewsListUrl}${widget.id}&pageSize=$pageSize&page=$page&${ApiUrls.kApiKey}');
       var response = await http.get(url);
       setState(() {});
       var responseData = json.decode(response.body);
@@ -152,7 +157,8 @@ class _DescriptionPageState extends State<DescriptionPage> {
       });
       page += 1;
       try {
-        final response = await http.get(Uri.parse('${ApiUrls.kBaseUrl}${ApiUrls.kNewsListUrl}${widget.id}&pageSize=$pageSize&page=$page&${ApiUrls.kApiKey}'));
+        final response = await http.get(Uri.parse(
+            '${ApiUrls.kBaseUrl}${ApiUrls.kNewsListUrl}${widget.id}&pageSize=$pageSize&page=$page&${ApiUrls.kApiKey}'));
 
         var responseData = json.decode(response.body);
 
